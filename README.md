@@ -6,6 +6,8 @@ This is a fork of the code release of the paper [Debating with More Persuasive L
 
 It adapts and extends the methodology to test a proposer-critic variant of debate on a chess puzzle dataset. This adaptation tests a reasoning asymmetry rather than an information asymmetry. See [README_chess.md](README_chess.md) for information related to this experiment.
 
+Read the results of the chess experiments in the [final paper](Chess_AI_Debate.pdf)
+
 ## Setup
 
 ### Model configuration
