@@ -188,7 +188,8 @@ async def run_interaction(
     instructions = (
         instructions if instructions is not None else load_template("chess_interaction")
     )
-    if opening_result is not None:
+    direct_opening = opening_result is not None and "transcript" not in opening_result
+    if opening_result is not None and not direct_opening:
         opening_transcript = json.loads(opening_result["transcript"])
         if len(opening_transcript) != 1 or opening_transcript[0]["role"] != "proposer":
             raise ValueError("A reused opening must contain exactly one proposer turn")
@@ -226,6 +227,8 @@ async def run_interaction(
         public_text, length_metrics = limit_public_response(
             public_text, limits, preserve_final_token=index == 0
         )
+        if index == 0 and direct_opening:
+            public_text = result.get("model_response", public_text)
         responses = [e for e in raw if "completion" in e]
         has_final = bool(responses) and not responses[-1].get("tool_calls")
         # Tool-loop preambles and scratch commentary are local. Share one final
@@ -268,7 +271,10 @@ async def run_interaction(
             dict(round=round_number, role=role, model=agent_model, **e) for e in raw
         )
         if index == 0 and result["complete"]:
-            move, correct = score_proposal(puzzle, raw)
+            if direct_opening:
+                move, correct = result["final_move"], result["correct"]
+            else:
+                move, correct = score_proposal(puzzle, raw)
         if not result["complete"]:
             break
     return interaction_result(

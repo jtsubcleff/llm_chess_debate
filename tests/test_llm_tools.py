@@ -92,12 +92,7 @@ class NativeToolTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(final.completion, "e4")
         self.assertEqual(first.request_id, "req_openai_test")
         self.assertEqual(final.to_dict()["request_id"], "req_openai_test")
-        self.assertEqual(
-            requests[0]["tools"][1].get(
-                "name", requests[0]["tools"][1].get("function", {}).get("name")
-            ),
-            "display_board_unicode",
-        )
+        self.assertEqual(len(requests[0]["tools"]), 1)
         self.assertEqual(requests[1]["messages"][1]["tool_calls"][0]["id"], "c1")
         self.assertEqual(requests[1]["messages"][2]["tool_call_id"], "c1")
 
@@ -180,12 +175,7 @@ class NativeToolTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(final.completion, "e4")
         self.assertEqual(first.request_id, "req_openai_test")
         self.assertEqual(final.to_dict()["request_id"], "req_openai_test")
-        self.assertEqual(
-            requests[0]["tools"][1].get(
-                "name", requests[0]["tools"][1].get("function", {}).get("name")
-            ),
-            "display_board_unicode",
-        )
+        self.assertEqual(len(requests[0]["tools"]), 1)
         self.assertEqual(requests[0]["tools"][0]["name"], "validate_move_sequence")
         self.assertEqual(requests[1]["input"][1]["type"], "reasoning")
         self.assertEqual(requests[1]["input"][3]["call_id"], "c1")
@@ -269,12 +259,7 @@ class NativeToolTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(final.completion, "e4")
         self.assertEqual(first.request_id, "req_anthropic_test")
         self.assertEqual(final.to_dict()["request_id"], "req_anthropic_test")
-        self.assertEqual(
-            requests[0]["tools"][1].get(
-                "name", requests[0]["tools"][1].get("function", {}).get("name")
-            ),
-            "display_board_unicode",
-        )
+        self.assertEqual(len(requests[0]["tools"]), 1)
         self.assertEqual(
             requests[0]["tools"][0]["input_schema"],
             VALIDATE_MOVE_SEQUENCE["function"]["parameters"],

@@ -15,8 +15,7 @@ The experimental dataset should already be present at `chess_data/lichess_puzzle
 ## Run Direct QA
 
 Direct QA asks a model for the best first move from a FEN. It can reason and
-call `validate_move_sequence` to check candidate lines with python-chess, or
-`display_board_unicode(fen)` to view any supplied position as a Unicode board. No
+call `validate_move_sequence` to check candidate lines with python-chess. No
 engine evaluation or solution is exposed to the model.
 
 From the repository root with the virtual environment activated:
@@ -181,20 +180,20 @@ Public word limits are shared across the suite and standalone chess protocols:
 
 | Response | Prompt instruction | Enforced maximum |
 | --- | ---: | ---: |
-| Initial solve in any format, including Direct QA | 300 words | 350 words |
-| Later debate proposer arguments and every critic argument | 150 words | 200 words |
-| Later consultancy proposer responses | 300 words | 350 words |
-| Consultancy questioner | 300 words | 350 words |
+| Initial solve in any format, including Direct QA | 200 words | 225 words |
+| Later debate proposer arguments and every critic argument | 100 words | 125 words |
+| Later consultancy proposer responses | 200 words | 225 words |
+| Consultancy questioner | 200 words | 225 words |
 
 Limits count whitespace-separated words in the final public response, excluding
 private thinking and tool-loop commentary. For an overlong opening, retain the
-first 349 words and reappend the original final token as word 350. This preserves
+first 224 words and reappend the original final token as word 225. This preserves
 the selected move without changing the original response's correctness or fixing
 malformed answers. Later arguments are cut at their hard maximum. There is no
 extra truncation marker consuming words. Shorter responses retain their formatting.
 
 The policy is set in `core/chess/word_limits.py` and pinned in run manifests.
-The prompts receive the corresponding instruction limits. `turn_metrics` records
+Prompts request concision and include the corresponding suggested word limits. `turn_metrics` records
 `prompt_word_limit`, `public_word_limit`, `public_words_original`, `public_words`,
 and `public_truncated`; `public_truncated_turns` summarizes each interaction.
 Direct QA records the same length fields directly in its result row and shares
@@ -206,7 +205,7 @@ policy change. The word caps affect public evidence, not the generation token
 budget or already incurred API usage.
 
 Each agent turn has its own `max_tool_rounds`, with `max_tokens` per API call.
-Both agents receive the existing chess tools unless `use_tools=false`.
+Both agents receive the move validator unless `use_tools=false`.
 Successful calls are cached by puzzle and agent turn. A mid-interaction API/tool-loop failure saves a partial transcript,
 keeps the opening move, and leaves the puzzle incomplete; rerunning the same
 command replays cached calls and resumes. As in Direct QA, a non-tool final
@@ -242,7 +241,7 @@ The chess judge makes a binary final judgement about a proposed first move.
 It receives puzzle instructions, the solver-position FEN, the proposed SAN move,
 and the proposer's response text (or the text-only public interaction). Tool
 calls, results, and audit traces are never included. It can challenge the argument
-and explore alternative lines with both chess tools. The reference solution and
+and explore alternative lines with the move validator. The reference solution and
 saved correctness label are never supplied to the judge. The prompt lives in
 `core/config/prompts/chess_judge.yaml`.
 
@@ -290,7 +289,7 @@ Paired runs solve each distinct proposer once on the shared balanced sample and
 judge only the requested pairs. Proposer results stay in the usual locations;
 judge outputs and summaries live under `exp_dir/judgements/`. Both stages use
 `max_tokens`, `max_tool_rounds`, and `temperature`. `use_tools=false` disables
-proposer tools only; the judge always receives both chess tools. Each stage
+proposer tools only; the judge always receives the move validator. Each stage
 starts automatically after validation, with proposals checkpointed before judging.
 
 Both stages checkpoint and resume with the same command. Judge manifests pin
@@ -309,12 +308,6 @@ starts from the original puzzle FEN, independently of earlier calls and other
 puzzles. Null moves are illegal. Results have `legal` (boolean), `fen` (new FEN
 if fully legal, otherwise null), and `first_illegal_move` (null if legal).
 Malformed arguments return an error to the model so it can correct them.
-
-`display_board_unicode` accepts `{"fen": "<position FEN>"}` and returns
-`{"board": "<Unicode board text>"}` using python-chess's default layout (White
-at the bottom). It accepts the original puzzle FEN or another position, such as
-a FEN returned by validation. It does not change the original puzzle position.
-Invalid FENs return a tool error.
 
 The model's final whitespace-separated token must exactly match canonical SAN
 for the first solution move, including check/mate/promotion notation. As an
@@ -356,7 +349,7 @@ Each model has `exp_dir/direct_qa/<safe-model-name>_<hash>/puzzles.csv` with:
   but cannot recover IDs that were not originally saved;
 - `use_tools`, `input_tokens`, `output_tokens`, `cost` (USD; blank if unknown), `api_calls`,
   and `tool_trace` (JSON containing responses, tool calls, and results);
-- `validate_move_sequence_calls`, `display_board_unicode_calls`, and
+- `validate_move_sequence_calls` and
   `validate_move_sequence_illegal_calls` for each puzzle solve.
 
 Tool counts include each dispatched call, including malformed arguments. The

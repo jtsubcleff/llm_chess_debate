@@ -71,6 +71,16 @@ def load_transcripts(directory, allow_empty=False):
             label = str(row.correct).lower()
             if label not in ("true", "false"):
                 raise ValueError(f"Invalid correctness label in {path}")
+            transcript = json.loads(row.transcript) if "transcript" in frame else None
+            transcript_protocol = "direct_qa"
+            if transcript is not None:
+                is_consultancy = (
+                    row.get("condition") in ("single_consultancy", "multi_consultancy")
+                    or bool(row.get("questioner"))
+                    or "consultancy" in (path.parent.name, path.parent.parent.name)
+                    or any(turn["role"] == "questioner" for turn in transcript)
+                )
+                transcript_protocol = "consultancy" if is_consultancy else "debate"
             sources.append(
                 dict(
                     source=str(path.resolve()),
@@ -82,6 +92,7 @@ def load_transcripts(directory, allow_empty=False):
                     proposer=row.model,
                     proposer_correct=label == "true",
                     final_move=row.final_move,
+                    transcript_protocol=transcript_protocol,
                     **{
                         key: row[key]
                         for key in (
@@ -96,8 +107,8 @@ def load_transcripts(directory, allow_empty=False):
                         if key in frame
                     },
                     # Re-render older interaction transcripts to exclude legacy tool events.
-                    model_response=format_transcript(json.loads(row.transcript))
-                    if "transcript" in frame
+                    model_response=format_transcript(transcript)
+                    if transcript is not None
                     else row.model_response,
                 )
             )

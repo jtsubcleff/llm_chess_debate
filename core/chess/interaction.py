@@ -9,6 +9,7 @@ from pathlib import Path
 import pandas as pd
 
 from core.chess.protocols.interaction import (
+    METRIC_FIELDS,
     interaction_prefix,
     run_interaction,
     turn_schedule,
@@ -17,7 +18,7 @@ from core.chess.results import aggregate_results, write_csv, write_json
 from core.chess.tools import CHESS_TOOLS, TOOL_COUNT_FIELDS
 from core.chess.word_limits import PUBLIC_WORD_LIMITS
 from core.llm_api.registry import resolve_model
-from core.load.chess import load_puzzles, sample_puzzles
+from core.load.chess import ChessPuzzle, load_puzzles, sample_puzzles
 from core.prompts import load_template
 
 LOGGER = logging.getLogger(__name__)
@@ -45,6 +46,49 @@ def interaction_models(cfg):
     return jobs
 
 
+def load_direct_qa_openings(directory, proposer):
+    """Load one saved solver's completed sample and its opening turn records."""
+    directory = Path(directory)
+    path = directory / "puzzles.csv"
+    profile = directory / "model.json"
+    if profile.exists() and json.loads(profile.read_text()) != proposer:
+        raise ValueError("Direct QA source model profile differs from the proposer")
+    frame = pd.read_csv(path, keep_default_na=False, dtype={"puzzleId": str})
+    if set(frame.model) != {proposer["id"]} or frame.puzzleId.duplicated().any():
+        raise ValueError("Expected one Direct QA model and unique puzzle IDs")
+    puzzles, openings = [], {}
+    for row in frame.to_dict("records"):
+        if str(row["complete"]).lower() != "true":
+            continue
+        if "transcript" in row or not row.get("tool_trace"):
+            raise ValueError("Expected a Direct QA source with saved tool traces")
+        puzzle = ChessPuzzle(
+            row["puzzleId"],
+            row["FEN"],
+            row["moves"],
+            row["rating"],
+            row["rating_bucket"],
+        )
+        puzzles.append(puzzle)
+        opening = dict(
+            **{field: int(row.get(field) or 0) for field in METRIC_FIELDS},
+            tool_trace=row["tool_trace"],
+            final_move=row["final_move"],
+            correct=str(row["correct"]).lower() == "true",
+            complete=True,
+            cost=float(row["cost"]) if row.get("cost") not in ("", None) else None,
+            error=row.get("error", ""),
+            request_id=row.get("request_id") or None,
+        )
+        if row.get("public_words") not in ("", None):
+            # Recent Direct QA rows already store the filtered, bounded argument.
+            opening["model_response"] = row["model_response"]
+        openings[(proposer["id"], puzzle.puzzleId)] = opening
+    if not puzzles:
+        raise ValueError(f"No completed Direct QA responses in {path}")
+    return puzzles, openings
+
+
 async def run_interactions(cfg, api, puzzles=None, openings=None, prompt_template=None):
     from core.chess.run import model_directory
 
@@ -54,6 +98,13 @@ async def run_interactions(cfg, api, puzzles=None, openings=None, prompt_templat
             "Require max_tokens > 0, max_tool_rounds >= 0, num_threads > 0"
         )
     jobs = interaction_models(cfg)
+    if puzzles is None and cfg.get("transcripts_dir") is not None:
+        proposers = {key[0]: specs[0] for key, specs in jobs.items()}
+        if len(proposers) != 1:
+            raise ValueError("Direct QA opening reuse requires one proposer model")
+        puzzles, openings = load_direct_qa_openings(
+            cfg.transcripts_dir, next(iter(proposers.values()))
+        )
     if puzzles is None:
         puzzles = sample_puzzles(
             load_puzzles(Path(cfg.dataset_path)), cfg.limit, cfg.seed
@@ -149,7 +200,7 @@ async def run_interactions(cfg, api, puzzles=None, openings=None, prompt_templat
             opening = (
                 openings[(key[0], puzzle.puzzleId)] if openings is not None else None
             )
-            if opening is not None and not opening["proposal_valid"]:
+            if opening is not None and not opening.get("proposal_valid", True):
                 # Refused/truncated/missing openings cannot support a judgement.
                 result = interaction_prefix(
                     opening, puzzle, cfg.protocol, cfg.num_rounds

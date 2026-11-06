@@ -8,12 +8,7 @@ import chess
 
 from core.chess.public_text import public_turn
 from core.chess.results import write_json
-from core.chess.tools import (
-    CHESS_TOOLS,
-    TOOL_COUNT_FIELDS,
-    display_board_unicode,
-    validate_move_sequence,
-)
+from core.chess.tools import CHESS_TOOLS, TOOL_COUNT_FIELDS, validate_move_sequence
 from core.chess.word_limits import PUBLIC_WORD_LIMITS, limit_public_response
 from core.llm_api.base_llm import LLMResponse, StopReason
 from core.llm_api.errors import request_id_from_error
@@ -186,16 +181,13 @@ async def run_chess_turns(
             for call in response.tool_calls:
                 try:
                     name = call["function"]["name"]
-                    if name not in ("validate_move_sequence", "display_board_unicode"):
+                    if name != "validate_move_sequence":
                         raise ValueError("Unknown tool")
-                    tool_counts[f"{name}_calls"] += 1
+                    tool_counts["validate_move_sequence_calls"] += 1
                     arguments = json.loads(call["function"]["arguments"])
-                    if name == "validate_move_sequence":
-                        result = validate_move_sequence(puzzle.FEN, **arguments)
-                        if result["legal"] is False:
-                            tool_counts["validate_move_sequence_illegal_calls"] += 1
-                    else:
-                        result = dict(board=display_board_unicode(**arguments))
+                    result = validate_move_sequence(puzzle.FEN, **arguments)
+                    if result["legal"] is False:
+                        tool_counts["validate_move_sequence_illegal_calls"] += 1
                 except (ValueError, TypeError) as exc:
                     result = dict(error=str(exc))
                 trace.append(dict(tool_call=call, result=result))

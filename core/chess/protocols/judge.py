@@ -52,14 +52,17 @@ async def run_judge(
     temperature=0.2,
     prompt_template=None,
 ):
+    if prompt_template is None:
+        prompt_template = load_template("chess_judge")
     variables = judge_variables(puzzle, proposal)
+    if "transcript_descriptions" in prompt_template:
+        protocol = proposal.get("transcript_protocol", "direct_qa")
+        variables["TRANSCRIPT_DESCRIPTION"] = prompt_template[
+            "transcript_descriptions"
+        ][protocol]
     messages = [
         dict(role=m["role"], content=render(m["content"], variables))
-        for m in (
-            prompt_template
-            if prompt_template is not None
-            else load_template("chess_judge")
-        )["messages"]
+        for m in prompt_template["messages"]
     ]
     result = await run_chess_turns(
         api,

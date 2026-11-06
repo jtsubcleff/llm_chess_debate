@@ -256,7 +256,7 @@ class InteractionTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("proposer_tool_sentinel", result["model_response"])
         self.assertNotIn("proposer_tool_sentinel", result["transcript"])
         self.assertIn("proposer_tool_sentinel", result["tool_trace"])
-        self.assertTrue(all(len(p[2]["tools"]) == 2 for p in prompts))
+        self.assertTrue(all(len(p[2]["tools"]) == 1 for p in prompts))
         self.assertEqual(result["validate_move_sequence_calls"], 3)
         self.assertEqual(result["final_move"], "e4")
         self.assertTrue(result["correct"])

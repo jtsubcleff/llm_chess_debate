@@ -170,6 +170,10 @@ class SuiteTests(unittest.IsolatedAsyncioTestCase):
             self.assertNotIn("gpt-3.5-turbo", user)
             if "judging a proposed solution" in system:
                 self.assertIn("<transcript>", user)
+                if "— critic:" in user:
+                    self.assertIn("critic's objections", system)
+                else:
+                    self.assertIn("your conversation with the proposer", system)
                 return [response("Yes" if "Proposed solution: e4" in user else "No")]
             if "Find the best move in this position:" in user:
                 openings += 1

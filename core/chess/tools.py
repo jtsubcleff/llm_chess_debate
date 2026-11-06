@@ -42,35 +42,8 @@ def validate_move_sequence(fen: str, moves: list[str]) -> dict:
     return dict(legal=True, fen=board.fen(), first_illegal_move=None)
 
 
-DISPLAY_BOARD_UNICODE = {
-    "type": "function",
-    "function": {
-        "name": "display_board_unicode",
-        "description": "Convert a FEN into python-chess's Unicode board diagram (White at the bottom). Returns the diagram in the board field. Does not evaluate the position or change the puzzle state.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "fen": {
-                    "type": "string",
-                    "description": "The FEN of the position to display.",
-                }
-            },
-            "required": ["fen"],
-            "additionalProperties": False,
-        },
-    },
-}
-
-CHESS_TOOLS = [VALIDATE_MOVE_SEQUENCE, DISPLAY_BOARD_UNICODE]
+CHESS_TOOLS = [VALIDATE_MOVE_SEQUENCE]
 TOOL_COUNT_FIELDS = (
     "validate_move_sequence_calls",
-    "display_board_unicode_calls",
     "validate_move_sequence_illegal_calls",
 )
-
-
-def display_board_unicode(fen: str) -> str:
-    """Render the supplied FEN using python-chess's default Unicode layout."""
-    if not isinstance(fen, str):
-        raise ValueError("fen must be a FEN string")
-    return chess.Board(fen).unicode()

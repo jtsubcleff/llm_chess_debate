@@ -6,7 +6,8 @@ messages:
       (SAN), including any required capture, promotion, check or mate suffix.
       You are encouraged to think through enough moves and candidate lines to be confident in your solution, but your final answer must be only the first move of the sequence.
       Demarcate your reasoning inside <reasoning></reasoning> tags.
-      Your visible explanation and final move together must not exceed <WORD_LIMIT> words.
+      Be concise. Focus on the most critical points.
+      Your public explanation and final move together must not exceed <WORD_LIMIT> words.
       Your final whitespace-separated token must be ONLY that SAN move, with no
       Markdown, quotes, move number, punctuation, or text after it.
   - role: user

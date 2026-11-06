@@ -12,7 +12,7 @@ from hydra import compose, initialize_config_dir
 
 from core.chess.protocols.direct_qa import run_direct_qa, score_response
 from core.chess.run import run_experiment
-from core.chess.tools import display_board_unicode, validate_move_sequence
+from core.chess.tools import validate_move_sequence
 from core.llm_api.base_llm import LLMResponse
 from core.llm_api.tool_calls import (
     anthropic_messages,
@@ -67,16 +67,6 @@ class ChessTests(unittest.TestCase):
             )
         with self.assertRaises(ValueError):
             validate_move_sequence(original, [])
-
-    def test_unicode_board_matches_python_chess(self):
-        board = chess.Board()
-        self.assertEqual(display_board_unicode(board.fen()), board.unicode())
-        board.push_san("e4")
-        self.assertEqual(display_board_unicode(board.fen()), board.unicode())
-        self.assertNotEqual(display_board_unicode(board.fen()), chess.Board().unicode())
-        for invalid in ["bad fen", "", None, 42]:
-            with self.subTest(fen=invalid), self.assertRaises(ValueError):
-                display_board_unicode(invalid)
 
     def test_final_token_exact_san(self):
         p = puzzle()
@@ -214,15 +204,12 @@ class ChessTests(unittest.TestCase):
 
 
 class ChessAsyncTests(unittest.IsolatedAsyncioTestCase):
-    async def test_both_tools_counts_errors_and_cached_replay(self):
-        board = chess.Board()
-        board.push_san("e4")
+    async def test_validator_counts_errors_and_cached_replay(self):
         requests = [
             ("validate_move_sequence", '{"moves":["e4"]}'),
-            ("display_board_unicode", json.dumps(dict(fen=board.fen()))),
             ("validate_move_sequence", '{"moves":["e4","e4"]}'),
             ("validate_move_sequence", '{"moves":[]}'),
-            ("display_board_unicode", '{"fen":"bad fen"}'),
+            ("display_board_unicode", json.dumps(dict(fen=chess.STARTING_FEN))),
             ("validate_move_sequence", "not json"),
         ]
         calls = [
@@ -239,30 +226,29 @@ class ChessAsyncTests(unittest.IsolatedAsyncioTestCase):
             result = await run_direct_qa(api, "gpt-4", puzzle(), folder)
             self.assertTrue(result["correct"])
             self.assertEqual(result["validate_move_sequence_calls"], 4)
-            self.assertEqual(result["display_board_unicode_calls"], 2)
             self.assertEqual(result["validate_move_sequence_illegal_calls"], 1)
             offered = api.call_args_list[0].kwargs["tools"]
             self.assertEqual(
                 {t["function"]["name"] for t in offered},
-                {"validate_move_sequence", "display_board_unicode"},
+                {"validate_move_sequence"},
             )
             prompt = "\n".join(
                 m["content"]
                 for m in api.call_args_list[0].args[1]
                 if m["role"] != "tool"
             )
-            self.assertIn("display_board_unicode", prompt)
+            self.assertNotIn("display_board_unicode", prompt)
             outcomes = [
                 entry["result"]
                 for entry in json.loads(result["tool_trace"])
                 if "result" in entry
             ]
-            self.assertEqual(outcomes[1]["board"], board.unicode())
+            self.assertEqual(outcomes[3], {"error": "Unknown tool"})
             self.assertEqual(sum("error" in outcome for outcome in outcomes), 3)
             messages = api.call_args.args[1]
             tool_messages = [m for m in messages if m["role"] == "tool"]
             self.assertEqual(
-                json.loads(tool_messages[1]["content"])["board"], board.unicode()
+                json.loads(tool_messages[3]["content"]), {"error": "Unknown tool"}
             )
             again = await run_direct_qa(
                 AsyncMock(side_effect=AssertionError("Must use cache")),
@@ -282,7 +268,6 @@ class ChessAsyncTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(result["correct"])
             self.assertFalse(result["use_tools"])
             self.assertEqual(result["validate_move_sequence_calls"], 0)
-            self.assertEqual(result["display_board_unicode_calls"], 0)
             self.assertEqual(result["validate_move_sequence_illegal_calls"], 0)
             self.assertEqual(result["api_calls"], 1)
             self.assertEqual(result["input_tokens"], 10)
@@ -511,7 +496,6 @@ class ChessAsyncTests(unittest.IsolatedAsyncioTestCase):
             for frame in frames.values():
                 for field in (
                     "validate_move_sequence_calls",
-                    "display_board_unicode_calls",
                     "validate_move_sequence_illegal_calls",
                 ):
                     self.assertEqual(frame[field].tolist(), [0, 0, 0])

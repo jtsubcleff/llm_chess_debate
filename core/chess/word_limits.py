@@ -1,10 +1,10 @@
 """Shared limits on public chess evidence, independent of reasoning/token budgets."""
 
 PUBLIC_WORD_LIMITS = {
-    "opening": {"prompt": 300, "maximum": 350},
-    "debate": {"prompt": 150, "maximum": 200},
-    "consultancy": {"prompt": 300, "maximum": 350},
-    "questioner": {"prompt": 300, "maximum": 350},
+    "opening": {"prompt": 200, "maximum": 225},
+    "debate": {"prompt": 100, "maximum": 125},
+    "consultancy": {"prompt": 200, "maximum": 225},
+    "questioner": {"prompt": 200, "maximum": 225},
 }
 
 

@@ -110,14 +110,6 @@ class JudgeRunTests(unittest.IsolatedAsyncioTestCase):
                     name="validate_move_sequence", arguments='{"moves":["a3","e5"]}'
                 ),
             ),
-            dict(
-                id="b",
-                type="function",
-                function=dict(
-                    name="display_board_unicode",
-                    arguments=json.dumps(dict(fen=chess.STARTING_FEN)),
-                ),
-            ),
         ]
         with tempfile.TemporaryDirectory() as folder:
             api = AsyncMock(
@@ -132,10 +124,10 @@ class JudgeRunTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(result["correct"])
             self.assertEqual(result["judgement"], "No")
             self.assertEqual(result["validate_move_sequence_calls"], 1)
-            self.assertEqual(result["display_board_unicode_calls"], 1)
             # AsyncMock retains the mutable conversation, including tool results.
             messages = api.call_args_list[0].args[1]
             user = messages[1]["content"]
+            self.assertIn("solver's public explanation", messages[0]["content"])
             self.assertIn("Proposed solution: a3", user)
             self.assertIn(proposal["model_response"], user)
             self.assertNotIn("RAW_TRACE_SENTINEL", user)
@@ -240,7 +232,7 @@ class JudgeRunTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(summary.accuracy.iloc[0], 100)
             for call in api.call_args_list:
                 if "judging" in call.args[1][0]["content"]:
-                    self.assertEqual(len(call.kwargs["tools"]), 2)
+                    self.assertEqual(len(call.kwargs["tools"]), 1)
                 else:
                     self.assertNotIn("tools", call.kwargs)
             await run_experiment(cfg, AsyncMock(side_effect=AssertionError("resume")))
